@@ -41,9 +41,9 @@ def create_utfgrids(shppath, minzoom, maxzoom, outdir, fields=None, layernum=0):
     # Since grids are `rendered` they need a style 
     s = mapnik.Style()
     r = mapnik.Rule()
-    polygon_symbolizer = mapnik.PolygonSymbolizer(mapnik.Color('#f2eff9'))
+    polygon_symbolizer = mapnik.PolygonSymbolizer()
     r.symbols.append(polygon_symbolizer)
-    line_symbolizer = mapnik.LineSymbolizer(mapnik.Color('rgb(50%,50%,50%)'),0.1)
+    line_symbolizer = mapnik.LineSymbolizer()
     r.symbols.append(line_symbolizer)
     s.rules.append(r)
     m.append_style('My Style',s)
