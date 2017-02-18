@@ -21,6 +21,10 @@ try:
 except ImportError:
     import json
 
+import multiprocessing
+
+# number of processes
+numProcesses = 10
 
 def create_utfgrids(shppath, minzoom, maxzoom, outdir, fields=None, layernum=0):
     ds = ogr.Open(shppath)
@@ -61,8 +65,17 @@ def create_utfgrids(shppath, minzoom, maxzoom, outdir, fields=None, layernum=0):
         print " * Processing Zoom Level %s" % tz
         tminx, tminy = mercator.MetersToTile( bbox[0], bbox[2], tz)
         tmaxx, tmaxy = mercator.MetersToTile( bbox[1], bbox[3], tz)
-        for ty in range(tminy, tmaxy+1):
-            for tx in range(tminx, tmaxx+1):
+
+        def writeUTFGRID(q):
+            while not q.empty():
+                r = q.get()
+                if (r == None):
+                    q.task_done()
+                    break
+                else:
+                    (ty, tx, tz) = r
+
+                # print (tz, tx, ty)
                 output = os.path.join(outdir, str(tz), str(tx))
                 if not os.path.exists(output):
                     os.makedirs(output)
@@ -83,6 +96,28 @@ def create_utfgrids(shppath, minzoom, maxzoom, outdir, fields=None, layernum=0):
                 utfgrid = grid.encode('utf',resolution=4)
                 with open(tilefilename, 'w') as file:
                     file.write(json.dumps(utfgrid))
+
+                q.task_done()
+
+        # queue
+        q = multiprocessing.JoinableQueue()
+
+        for ty in range(tminy, tmaxy+1):
+            for tx in range(tminx, tmaxx+1):
+                q.put((ty, tx, tz))
+
+        # processes
+        processes = []
+        for i in range(numProcesses):
+            p = multiprocessing.Process(target=writeUTFGRID, args=(q,))
+            processes.append(p)
+            p.start()
+
+        for i in range(numProcesses):
+            q.put(None)
+        q.join()
+        for i in range(numProcesses):
+            processes[i].join()
 
 if __name__ == "__main__":
     usage = "usage: %prog [options] shapefile minzoom maxzoom output_directory"
